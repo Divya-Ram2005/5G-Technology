@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <body class="flex items-center justify-center min-h-screen bg-white">
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5G Packet Trace Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Glassmorphic effect */
+        
+        .glass {
+            background: rgba(173, 219, 233, 0.678);
+            box-shadow: 0 4px 10px rgba(80, 45, 45, 0.39);
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Morphing effect */
+        .morph {
+            transition: all 0.6s ease-in-out;
+            transform: scale(1);
+            border-radius: 16px;
+        }
+        .morph.shrink {
+            transform: scale(0.8);
+            border-radius: 50px;
+            opacity: 0;
+        }
+
+        /* Progress bar animation */
+        @keyframes fillBar {
+            from { width: 0%; }
+            to { width: 100%; }
+        }
+        .progress {
+            animation: fillBar 2.5s ease-in-out;
+        }
+
+        /* Button hover animation */
+        .btn-hover {
+            transition: all 0.3s ease;
+        }
+        .btn-hover:hover {
+            transform: scale(1.05);
+            box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-sky-300">
+    <div class="glass shadow-lg p-8 w-96 text-center text-black">
+        <h1 class="text-2xl font-extrabold mb-4">5G Packet Trace Visualizer</h1>
+
+        <!-- Drag & Drop Upload Section -->
+        <div id="dropZone" class="morph border-2 border-dashed border-gray-400 rounded-lg p-6 cursor-pointer bg-white hover:bg-gray-200 transition text-black">
+            <p class="text-lg font-medium">Drag & Drop your PCAP file</p>
+            <p class="text-sm text-gray-600 my-2">or</p>
+            <label for="pcapFile" class="bg-blue-500 text-white px-5 py-2 rounded-lg cursor-pointer hover:bg-blue-600 btn-hover">
+                Choose File
+            </label>
+            <input type="file" id="pcapFile" class="hidden">
+        </div>
+
+        <!-- Uploaded File Display -->
+        <div id="fileDisplay" class="mt-4 hidden flex flex-col items-center bg-gray-100 p-4 rounded-lg morph">
+            <span id="fileName" class="text-lg font-semibold text-black"></span>
+            <div class="w-full mt-2 bg-gray-300 rounded-lg overflow-hidden">
+                <div id="progressBar" class="h-3 bg-blue-500 progress" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <!-- Process Button -->
+        <button id="processBtn" class="mt-4 bg-blue-500 text-white font-bold py-2 px-6 rounded-lg w-full btn-hover">
+            Process File
+        </button>
+
+        <!-- Generated Call Flow Section -->
+        <div class="mt-6 border border-gray-400 rounded-lg p-4 bg-gray-100 hidden fade-in">
+            <p class="text-black text-sm">Generated Call Flow will be displayed here</p>
+            <div id="output" class="mt-2"></div>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('pcapFile');
+        const fileDisplay = document.getElementById('fileDisplay');
+        const fileNameDisplay = document.getElementById('fileName');
+        const progressBar = document.getElementById('progressBar');
+        const processBtn = document.getElementById('processBtn');
+        const outputDiv = document.getElementById('output');
+
+        function handleFileSelection(file) {
+            dropZone.classList.add('shrink'); // Morph the upload section
+
+            setTimeout(() => {
+                dropZone.style.display = 'none';
+                fileDisplay.classList.remove('hidden');
+            }, 600);
+
+            fileNameDisplay.textContent = file.name;
+            progressBar.style.width = '0%';
+        }
+
+        fileInput.addEventListener('change', function () {
+            if (this.files.length > 0) {
+                handleFileSelection(this.files[0]);
+            }
+        });
+
+        dropZone.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            dropZone.classList.add('bg-gray-200');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('bg-gray-200');
+        });
+
+        dropZone.addEventListener('drop', (event) => {
+            event.preventDefault();
+            dropZone.classList.remove('bg-gray-200');
+
+            if (event.dataTransfer.files.length > 0) {
+                fileInput.files = event.dataTransfer.files;
+                handleFileSelection(event.dataTransfer.files[0]);
+            }
+        });
+
+        processBtn.addEventListener('click', function () {
+            if (fileInput.files.length === 0) {
+                alert('Please select a PCAP file first.');
+                return;
+            }
+
+            outputDiv.innerHTML = '<p class="text-blue-500 fade-in">Processing file...</p>';
+            progressBar.style.animation = 'fillBar 2.5s ease-in-out';
+
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 10;
+                progressBar.style.width = progress + '%';
+                if (progress >= 100) clearInterval(interval);
+            }, 300);
+        });
+        processBtn.addEventListener('click', function () {
+    if (fileInput.files.length === 0) {
+        alert('Please select a PCAP file first.');
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // Display processing message
+    outputDiv.innerHTML = '<p class="text-blue-500 fade-in">Processing file...</p>';
+    progressBar.style.animation = 'fillBar 2.5s ease-in-out';
+
+    // Send file to backend
+    fetch('http://127.0.0.1:5000/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            outputDiv.innerHTML = <p class="text-red-500">${data.error}</p>;
+        } else {
+            outputDiv.innerHTML = <p class="text-green-500">${data.message}</p>;
+            
+            // Display packet summary
+            let packetDetails = '<ul class="text-left text-sm mt-2">';
+            data.packets.forEach(packet => {
+                packetDetails += <li class="mb-1">${packet}</li>;
+            });
+            packetDetails += '</ul>';
+            
+            outputDiv.innerHTML += packetDetails;
+        }
+    })
+    .catch(error => {
+        outputDiv.innerHTML = <p class="text-red-500">Error processing file.</p>;
+        console.error('Error:', error);
+    });
+
+    // Progress bar animation
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += 10;
+        progressBar.style.width = progress + '%';
+        if (progress >= 100) clearInterval(interval);
+    }, 300);
+});
+
+    </script>
+</body>
+</html>
